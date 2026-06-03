@@ -25,7 +25,7 @@ module Dalli
 
       @ring.lock do
         # Stores partial results collected during interleaved send phase
-        @partial_results = {}
+        @partial_results = []
         servers = setup_requests(keys)
         start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
@@ -43,8 +43,12 @@ module Dalli
     private
 
     def yield_partial_results
-      @partial_results.each_pair do |key, value_list|
-        yield @key_manager.key_without_namespace(key), value_list
+      index = 0
+      results = @partial_results
+      total = results.size
+      while index < total
+        yield @key_manager.key_without_namespace(results[index]), results[index + 1], results[index + 2]
+        index += 3
       end
       @partial_results.clear
     end
@@ -167,7 +171,7 @@ module Dalli
     # additional responses from this server.
     def process_server(server)
       server.pipeline_next_responses do |key, value, cas|
-        yield @key_manager.key_without_namespace(key), [value, cas]
+        yield @key_manager.key_without_namespace(key), value, cas
       end
 
       server.pipeline_complete?

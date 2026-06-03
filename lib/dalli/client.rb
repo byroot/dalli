@@ -164,13 +164,13 @@ module Dalli
     # [value, cas_id]
     # If no block is given, returns a hash of
     #   { 'key' => [value, cas_id] }
-    def get_multi_cas(*keys)
+    def get_multi_cas(*keys, &block)
       if block_given?
-        pipelined_getter.process(keys) { |*args| yield(*args) }
+        pipelined_getter.process(keys, &block)
       else
-        {}.tap do |hash|
-          pipelined_getter.process(keys) { |k, data| hash[k] = data }
-        end
+        hash = {}
+        pipelined_getter.process(keys) { |k, value, cas| hash[k] = [value, cas] }
+        hash
       end
     end
 
@@ -519,9 +519,9 @@ module Dalli
     def get_multi_yielding(keys)
       Instrumentation.trace_with_result('get_multi', get_multi_attributes(keys)) do |span|
         hit_count = 0
-        pipelined_getter.process(keys) do |k, data|
+        pipelined_getter.process(keys) do |k, value,|
           hit_count += 1
-          yield k, data.first
+          yield k, value
         end
         record_hit_miss_metrics(span, keys.size, hit_count)
         nil
@@ -533,9 +533,9 @@ module Dalli
         hash = if ring.servers.size == 1
                  single_server_get_multi(keys)
                else
-                 {}.tap do |h|
-                   pipelined_getter.process(keys) { |k, data| h[k] = data.first }
-                 end
+                 values = {}
+                 pipelined_getter.process(keys) { |k, value,| values[k] = value }
+                 values
                end
         record_hit_miss_metrics(span, keys.size, hash.size)
         hash

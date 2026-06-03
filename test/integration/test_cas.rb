@@ -146,10 +146,7 @@ describe 'CAS behavior' do
           end
 
           # Invocation with block
-          dc.get_multi_cas(%w[a b c d e f]) do |k, data|
-            value = data.first
-            cas = data[1]
-
+          dc.get_multi_cas(%w[a b c d e f]) do |k, value, cas|
             assert_equal expected_hash[k], value
             assert(cas && cas != 0)
           end

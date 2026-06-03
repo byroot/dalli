@@ -195,11 +195,14 @@ describe 'Pipelined Get' do
             # We'll temporarily modify the threshold constant
             original_threshold = Dalli::PipelinedGetter::INTERLEAVE_THRESHOLD
             original_chunk = Dalli::PipelinedGetter::CHUNK_SIZE
+            original_timeout = Dalli::Protocol::Meta
             begin
               Dalli::PipelinedGetter.send(:remove_const, :INTERLEAVE_THRESHOLD)
               Dalli::PipelinedGetter.send(:remove_const, :CHUNK_SIZE)
+              Dalli::Protocol::Base.send(:remove_const, :DATA_AVAILABLE_CHECK_TIMEOUT)
               Dalli::PipelinedGetter.const_set(:INTERLEAVE_THRESHOLD, 3)
               Dalli::PipelinedGetter.const_set(:CHUNK_SIZE, 3)
+              Dalli::Protocol::Base.const_set(:DATA_AVAILABLE_CHECK_TIMEOUT, 2)
 
               # Now get_multi should use interleaved mode for 10 keys
               keys = Array.new(10) { |i| "key#{i}" }
@@ -213,8 +216,10 @@ describe 'Pipelined Get' do
             ensure
               Dalli::PipelinedGetter.send(:remove_const, :INTERLEAVE_THRESHOLD)
               Dalli::PipelinedGetter.send(:remove_const, :CHUNK_SIZE)
+              Dalli::Protocol::Base.send(:remove_const, :DATA_AVAILABLE_CHECK_TIMEOUT)
               Dalli::PipelinedGetter.const_set(:INTERLEAVE_THRESHOLD, original_threshold)
               Dalli::PipelinedGetter.const_set(:CHUNK_SIZE, original_chunk)
+              Dalli::Protocol::Base.const_set(:DATA_AVAILABLE_CHECK_TIMEOUT, original_timeout)
             end
           end
         end

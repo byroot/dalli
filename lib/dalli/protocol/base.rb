@@ -271,8 +271,7 @@ module Dalli
       def drain_pipeline_responses(results)
         return unless connected?
 
-        # Non-blocking check if socket has data available
-        return unless sock.wait_readable(0)
+        return unless data_available?
 
         # Read available data without blocking
         response_buffer.read
@@ -282,11 +281,17 @@ module Dalli
           status, cas, key, value = response_buffer.process_single_getk_response
           break if status.nil? # No complete response available
 
-          results[key] = [value, cas] unless key.nil?
+          results << key << value << cas unless key.nil?
         end
       rescue SystemCallError, Dalli::NetworkError
         # Ignore errors during drain - they'll be handled in fetch_responses
         nil
+      end
+
+      # Non-blocking check if socket has data available
+      DATA_AVAILABLE_CHECK_TIMEOUT = 0
+      def data_available?
+        sock.wait_readable(DATA_AVAILABLE_CHECK_TIMEOUT)
       end
 
       def response_buffer
