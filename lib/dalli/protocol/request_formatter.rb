@@ -56,15 +56,20 @@ module Dalli
           cmd << TERMINATOR
         end
 
-        def multi_meta_get(keys, skip_flags: false)
+        def multi_meta_get(keys, return_cas: false, quiet: false, skip_flags: false)
           # In raw mode: "mg <key> v k q s\r\n" (no f flag, key at index 2)
           # Normal mode: "mg <key> v f k q s\r\n" (key at index 3)
-          post_get = skip_flags ? " v k q s\r\n" : " v f k q s\r\n"
+          post_get = +' v'
+          post_get << ' f' unless skip_flags
+          post_get << ' c' if return_cas
+          post_get << ' k q s' if quiet
+          post_get << TERMINATOR
+
           buffer = ''.b
           keys.each do |key|
             buffer << 'mg ' << encoded_key(key) << post_get
           end
-          buffer << 'mn' << TERMINATOR
+          buffer << META_NOOP_TERMINATOR
         end
 
         def meta_set(key:, value:, bitflags: nil, cas: nil, ttl: nil, mode: :set, quiet: false)
@@ -96,7 +101,7 @@ module Dalli
             buffer << " T#{ttl}" if ttl
             buffer << ' MS q' << TERMINATOR << value << TERMINATOR
           end
-          buffer << META_NOOP
+          buffer << META_NOOP_TERMINATOR
         end
 
         # Thundering herd protection flag:
@@ -111,12 +116,13 @@ module Dalli
           cmd << TERMINATOR
         end
 
-        def multi_meta_delete(keys)
+        def multi_meta_delete(keys, quiet: false)
           buffer = ''.b
+          flags = quiet ? " q#{TERMINATOR}" : TERMINATOR
           keys.each do |key|
-            buffer << 'md ' << encoded_key(key) << ' q' << TERMINATOR
+            buffer << 'md ' << encoded_key(key) << flags
           end
-          buffer << META_NOOP
+          buffer << META_NOOP_TERMINATOR
         end
 
         def meta_arithmetic(key:, delta:, initial:, incr: true, cas: nil, ttl: nil, quiet: false)
@@ -134,9 +140,9 @@ module Dalli
         # rubocop:enable Metrics/ParameterLists
         # rubocop:enable Metrics/PerceivedComplexity
 
-        META_NOOP = "mn#{TERMINATOR}".freeze
+        META_NOOP_TERMINATOR = "mn#{TERMINATOR}".freeze
         def meta_noop
-          META_NOOP
+          META_NOOP_TERMINATOR
         end
 
         def version

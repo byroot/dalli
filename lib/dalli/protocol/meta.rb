@@ -97,6 +97,17 @@ module Dalli
         )
       end
 
+      def pipelined_get(keys)
+        # Clear buffer to remove any stale data from interrupted operations.
+        # Use clear (not reset) to keep pipeline_complete? = true, which is
+        # the expected state before pipeline_response_setup is called.
+        response_buffer.clear
+
+        buffer = RequestFormatter.multi_meta_get(keys, return_cas: true, quiet: true, skip_flags: raw_mode?)
+        write(buffer)
+        buffer.clear
+      end
+
       # Delete with stale invalidation instead of actual deletion.
       # Used with thundering herd protection to mark items as stale rather than removing them.
       # @note Requires memcached 1.6+ (meta protocol feature)
@@ -174,9 +185,10 @@ module Dalli
 
       # Pipelined delete - writes a quiet delete request without reading response.
       # Used by PipelinedDeleter for bulk operations.
-      def pipelined_delete(key)
-        req = RequestFormatter.meta_delete(key: key, quiet: true)
-        write(req)
+      def pipelined_delete(keys)
+        buffer = RequestFormatter.multi_meta_delete(keys, quiet: true)
+        write(buffer)
+        buffer.clear
       end
 
       # Arithmetic Commands
@@ -210,6 +222,10 @@ module Dalli
         response_processor.consume_all_responses_until_mn
       end
 
+      def consume_all_responses_until_mn
+        response_processor.consume_all_responses_until_mn
+      end
+
       def stats(info = nil)
         flushed_write(RequestFormatter.stats(info))
         response_processor.stats
@@ -234,7 +250,7 @@ module Dalli
       # machinery (IO.select, response buffering, server grouping).
       def read_multi_req(keys)
         is_raw = raw_mode?
-        buffer = RequestFormatter.multi_meta_get(keys, skip_flags: is_raw)
+        buffer = RequestFormatter.multi_meta_get(keys, quiet: true, skip_flags: is_raw)
         flushed_write(buffer)
         buffer.clear
         read_multi_get_responses(is_raw)

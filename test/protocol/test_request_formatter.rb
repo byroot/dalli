@@ -92,8 +92,8 @@ describe Dalli::Protocol::Meta::RequestFormatter do
   describe 'multi_meta_get' do
     it 'includes flags by default' do
       expected = <<~TXT
-        mg foo v f k q s\r
-        mg YmFy4oKs b v f k q s\r
+        mg foo v f\r
+        mg YmFy4oKs b v f\r
         mn\r
       TXT
       assert_equal expected, Dalli::Protocol::Meta::RequestFormatter.multi_meta_get(['foo', 'bar€'])
@@ -101,11 +101,20 @@ describe Dalli::Protocol::Meta::RequestFormatter do
 
     it 'does not include flags if specified' do
       expected = <<~TXT
-        mg foo v k q s\r
-        mg YmFy4oKs b v k q s\r
+        mg foo v\r
+        mg YmFy4oKs b v\r
         mn\r
       TXT
       assert_equal expected, Dalli::Protocol::Meta::RequestFormatter.multi_meta_get(['foo', 'bar€'], skip_flags: true)
+    end
+
+    it 'is quitet if specified' do
+      expected = <<~TXT
+        mg foo v f k q s\r
+        mg YmFy4oKs b v f k q s\r
+        mn\r
+      TXT
+      assert_equal expected, Dalli::Protocol::Meta::RequestFormatter.multi_meta_get(['foo', 'bar€'], quiet: true)
     end
   end
 
@@ -262,11 +271,20 @@ describe Dalli::Protocol::Meta::RequestFormatter do
   describe 'multi_meta_delete' do
     it 'returns the default' do
       expected = <<~TXT
+        md foo\r
+        md YmFy4oKs b\r
+        mn\r
+      TXT
+      assert_equal expected, Dalli::Protocol::Meta::RequestFormatter.multi_meta_delete(['foo', 'bar€'])
+    end
+
+    it 'returns quiet if specified' do
+      expected = <<~TXT
         md foo q\r
         md YmFy4oKs b q\r
         mn\r
       TXT
-      assert_equal expected, Dalli::Protocol::Meta::RequestFormatter.multi_meta_delete(['foo', 'bar€'])
+      assert_equal expected, Dalli::Protocol::Meta::RequestFormatter.multi_meta_delete(['foo', 'bar€'], quiet: true)
     end
   end
 

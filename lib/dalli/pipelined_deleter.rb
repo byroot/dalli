@@ -44,22 +44,20 @@ module Dalli
     # the corresponding quiet delete requests to the appropriate servers
     ##
     def make_delete_requests(groups)
-      groups.each do |server, keys_for_server|
-        keys_for_server.each do |key|
-          server.request(:pipelined_delete, key)
-        rescue DalliError, NetworkError => e
-          Dalli.logger.debug { e.inspect }
-          Dalli.logger.debug { "unable to delete key #{key} for server #{server.name}" }
-        end
+      groups.each do |server, keys|
+        server.request(:pipelined_delete, keys)
+      rescue DalliError, NetworkError => e
+        Dalli.logger.debug { e.inspect }
+        Dalli.logger.debug { "unable to delete keys #{keys.join(',')} for server #{server.name}" }
       end
     end
 
     ##
-    # Sends noop to each server to flush responses and ensure all deletes complete.
+    # Consume responses until NOOP
     ##
     def finish_requests(servers)
       servers.each do |server|
-        server.request(:noop)
+        server.request(:consume_all_responses_until_mn)
       rescue DalliError, NetworkError => e
         Dalli.logger.debug { e.inspect }
         Dalli.logger.debug { "unable to complete pipelined delete on server #{server.name}" }

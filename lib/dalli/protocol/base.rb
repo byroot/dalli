@@ -81,7 +81,7 @@ module Dalli
       # Returns nothing.
       def pipeline_response_setup
         verify_pipelined_state(:getkq)
-        write_noop
+        @connection_manager.flush
         # Use ensure_ready instead of reset to preserve any data already buffered
         # during interleaved pipelined get draining
         response_buffer.ensure_ready
@@ -228,20 +228,6 @@ module Dalli
         @connection_manager.establish_connection
         @version = version
         up!
-      end
-
-      def pipelined_get(keys)
-        # Clear buffer to remove any stale data from interrupted operations.
-        # Use clear (not reset) to keep pipeline_complete? = true, which is
-        # the expected state before pipeline_response_setup is called.
-        response_buffer.clear
-
-        req = +''
-        keys.each do |key|
-          req << quiet_get_request(key)
-        end
-        # Could send noop here instead of in pipeline_response_setup
-        write(req)
       end
 
       # For large batches, interleave writing requests with draining responses.
